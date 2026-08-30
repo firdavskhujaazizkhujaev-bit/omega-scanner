@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Сканер штрих-кода</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #f1f5f9; }
+    h2 { text-align: center; color: #28a745; }
+    #reader { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 11px; overflow: hidden; }
+    #result { margin-top: 16px; text-align: center; font-size: 16px; padding: 12px; }
+    .found { color: #15803d; font-weight: 700; }
+    .error { color: #dc3545; font-weight: 700; }
+    button { display: block; margin: 16px auto; padding: 12px 24px; font-size: 15px; border-radius: 8px; border: none; background: #dc3545; color: #fff; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>📷 Сканер штрих-кода</h2>
+  <div id="reader"></div>
+  <div id="result"></div>
+  <button id="closeBtn">Закрыть без сканирования</button>
+
+  <script>
+    // ВАЖНО: сюда позже вставим точный адрес твоего приложения
+    var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
+
+    document.getElementById('closeBtn').onclick = function () {
+      window.location.href = appUrl;
+    };
+
+    var scanner = new Html5Qrcode('reader');
+    var resultEl = document.getElementById('result');
+    var handled = false;
+
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      function (decodedText) {
+        if (handled) return;
+        handled = true;
+        resultEl.innerHTML = '<span class="found">✔ Найдено: ' + decodedText + '</span>';
+        scanner.stop();
+        setTimeout(function () {
+          window.location.href = appUrl + '?scanned=' + encodeURIComponent(decodedText);
+        }, 800);
+      },
+      function () { /* игнор кадров без штрих-кода */ }
+    ).catch(function (err) {
+      resultEl.innerHTML = '<span class="error">Не удалось открыть камеру: ' + err + '</span>';
+    });
+  </script>
+</body>
+</html>
