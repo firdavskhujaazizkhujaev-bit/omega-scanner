@@ -21,10 +21,10 @@
   <button id="closeBtn">Закрыть без сканирования</button>
 
   <script>
-    var baseUrl = window.location.href.split('?')[0];
+    var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
 
     document.getElementById('closeBtn').onclick = function () {
-      window.location.href = baseUrl;
+      window.location.href = appUrl;
     };
 
     var scanner = new Html5Qrcode('reader', {
@@ -50,7 +50,7 @@
         resultEl.innerHTML = '<span class="found">✔ Найдено: ' + decodedText + '</span>';
         scanner.stop();
         setTimeout(function () {
-          window.location.href = baseUrl + '?scanned=' + encodeURIComponent(decodedText);
+          window.location.href = appUrl + '?scanned=' + encodeURIComponent(decodedText);
         }, 800);
       },
       function () { /* игнор кадров без штрих-кода */ }
