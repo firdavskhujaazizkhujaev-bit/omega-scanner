@@ -21,27 +21,36 @@
   <button id="closeBtn">Закрыть без сканирования</button>
 
   <script>
-    // ВАЖНО: сюда позже вставим точный адрес твоего приложения
-    var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
+    var baseUrl = window.location.href.split('?')[0];
 
     document.getElementById('closeBtn').onclick = function () {
-      window.location.href = appUrl;
+      window.location.href = baseUrl;
     };
 
-    var scanner = new Html5Qrcode('reader');
+    var scanner = new Html5Qrcode('reader', {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    });
     var resultEl = document.getElementById('result');
     var handled = false;
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
+      { fps: 10, qrbox: { width: 280, height: 180 } },
       function (decodedText) {
         if (handled) return;
         handled = true;
         resultEl.innerHTML = '<span class="found">✔ Найдено: ' + decodedText + '</span>';
         scanner.stop();
         setTimeout(function () {
-          window.location.href = appUrl + '?scanned=' + encodeURIComponent(decodedText);
+          window.location.href = baseUrl + '?scanned=' + encodeURIComponent(decodedText);
         }, 800);
       },
       function () { /* игнор кадров без штрих-кода */ }
