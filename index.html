@@ -37,6 +37,12 @@
     button { flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; }
     #torchBtn { background: #f59e0b; color: #fff; display: none; }
     #closeBtn { background: #dc3545; color: #fff; }
+
+    .manual-block { max-width: 480px; margin: 20px auto 0; padding: 16px; background: #fff; border-radius: 11px; border: 1px solid #e2e8f0; }
+    .manual-block label { display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 8px; }
+    .manual-row { display: flex; gap: 8px; }
+    .manual-row input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .manual-row button { flex: 0 0 auto; padding: 12px 18px; background: #28a745; color: #fff; }
   </style>
 </head>
 <body>
@@ -54,12 +60,34 @@
     <button id="closeBtn">Закрыть без сканирования</button>
   </div>
 
+  <div class="manual-block">
+    <label>Не считывается? Введите цифры штрих-кода вручную:</label>
+    <div class="manual-row">
+      <input type="text" id="manualInput" inputmode="numeric" placeholder="Например: 4870144863382">
+      <button onclick="submitManual_()">Найти</button>
+    </div>
+  </div>
+
   <script>
     var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
 
     document.getElementById('closeBtn').onclick = function () {
       window.location.href = appUrl;
     };
+
+    function goToApp_(code) {
+      window.location.href = appUrl + '?scanned=' + encodeURIComponent(code);
+    }
+
+    function submitManual_() {
+      var val = document.getElementById('manualInput').value.trim();
+      if (!val) { return; }
+      goToApp_(val);
+    }
+
+    document.getElementById('manualInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') submitManual_();
+    });
 
     var scanner = new Html5Qrcode('reader', {
       formatsToSupport: [
@@ -80,10 +108,14 @@
     var torchOn = false;
 
     scanner.start(
-      { facingMode: 'environment' },
+      {
+        facingMode: 'environment',
+        width: { min: 1280, ideal: 1920, max: 2560 },
+        height: { min: 720, ideal: 1080, max: 1440 }
+      },
       {
         fps: 15,
-        qrbox: { width: 280, height: 160 }
+        qrbox: { width: 300, height: 170 }
       },
       function (decodedText) {
         if (handled) return;
@@ -91,15 +123,12 @@
 
         document.getElementById('scanLine').style.display = 'none';
 
-        var targetUrl = appUrl + '?scanned=' + encodeURIComponent(decodedText);
-
         resultEl.innerHTML =
-          '<span class="found">✔ Найдено: ' + decodedText + '</span><br><br>' +
-          '<a id="manualLink" href="' + targetUrl + '" style="display:block; margin-top:12px; padding:14px; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:700;">Нажмите, если не перешло автоматически →</a>';
+          '<span class="found">✔ Найдено: ' + decodedText + '</span>';
 
         scanner.stop().catch(function () {});
 
-        window.location.href = targetUrl;
+        goToApp_(decodedText);
       },
       function () { /* игнор кадров без штрих-кода */ }
     ).then(function () {
