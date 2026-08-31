@@ -6,19 +6,54 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #f1f5f9; }
-    h2 { text-align: center; color: #28a745; }
-    #reader { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 11px; overflow: hidden; }
+    h2 { text-align: center; color: #28a745; margin-bottom: 6px; }
+    .hint { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 14px; }
+
+    #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 11px; overflow: hidden; }
+    #reader { width: 100%; }
+
+    /* Анимированная зелёная линия сканирования, как в WeChat */
+    #scanLine {
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #22c55e 20%, #22c55e 80%, transparent);
+      box-shadow: 0 0 8px 2px rgba(34,197,94,.7);
+      top: 15%;
+      animation: scanMove 2.2s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @keyframes scanMove {
+      0%   { top: 15%; }
+      50%  { top: 80%; }
+      100% { top: 15%; }
+    }
+
     #result { margin-top: 16px; text-align: center; font-size: 16px; padding: 12px; word-break: break-all; }
     .found { color: #15803d; font-weight: 700; }
     .error { color: #dc3545; font-weight: 700; }
-    button { display: block; margin: 16px auto; padding: 12px 24px; font-size: 15px; border-radius: 8px; border: none; background: #dc3545; color: #fff; cursor: pointer; }
+    .controls { max-width: 480px; margin: 12px auto 0; display: flex; gap: 10px; }
+    button { flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; }
+    #torchBtn { background: #f59e0b; color: #fff; display: none; }
+    #closeBtn { background: #dc3545; color: #fff; }
   </style>
 </head>
 <body>
   <h2>📷 Сканер штрих-кода</h2>
-  <div id="reader"></div>
+  <div class="hint">Держите код на расстоянии 10–15 см, ровно и при хорошем освещении</div>
+
+  <div id="readerWrap">
+    <div id="reader"></div>
+    <div id="scanLine"></div>
+  </div>
+
   <div id="result"></div>
-  <button id="closeBtn">Закрыть без сканирования</button>
+  <div class="controls">
+    <button id="torchBtn" onclick="toggleTorch_()">💡 Фонарик</button>
+    <button id="closeBtn">Закрыть без сканирования</button>
+  </div>
 
   <script>
     var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
@@ -35,18 +70,40 @@
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.DATA_MATRIX,
+        Html5QrcodeSupportedFormats.AZTEC
       ]
     });
     var resultEl = document.getElementById('result');
     var handled = false;
+    var torchOn = false;
+
+    function computeQrbox(viewfinderWidth, viewfinderHeight) {
+      var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      var size = Math.floor(minEdge * 0.8);
+      return {
+        width: Math.min(size, viewfinderWidth - 20),
+        height: Math.floor(Math.min(size, viewfinderWidth - 20) * 0.55)
+      };
+    }
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 280, height: 180 } },
+      {
+        fps: 12,
+        qrbox: computeQrbox,
+        aspectRatio: 1.4,
+        disableFlip: false
+      },
       function (decodedText) {
         if (handled) return;
         handled = true;
+
+        document.getElementById('scanLine').style.display = 'none';
 
         var targetUrl = appUrl + '?scanned=' + encodeURIComponent(decodedText);
 
@@ -59,9 +116,24 @@
         window.location.href = targetUrl;
       },
       function () { /* игнор кадров без штрих-кода */ }
-    ).catch(function (err) {
+    ).then(function () {
+      var capabilities = scanner.getRunningTrackCameraCapabilities ? scanner.getRunningTrackCameraCapabilities() : null;
+      if (capabilities && capabilities.torchFeature && capabilities.torchFeature().isSupported()) {
+        document.getElementById('torchBtn').style.display = 'block';
+      }
+    }).catch(function (err) {
+      document.getElementById('scanLine').style.display = 'none';
       resultEl.innerHTML = '<span class="error">Не удалось открыть камеру: ' + err + '</span>';
     });
+
+    function toggleTorch_() {
+      torchOn = !torchOn;
+      var capabilities = scanner.getRunningTrackCameraCapabilities ? scanner.getRunningTrackCameraCapabilities() : null;
+      if (capabilities && capabilities.torchFeature) {
+        capabilities.torchFeature().apply(torchOn).catch(function () {});
+      }
+      document.getElementById('torchBtn').textContent = torchOn ? '💡 Выключить' : '💡 Фонарик';
+    }
   </script>
 </body>
 </html>
