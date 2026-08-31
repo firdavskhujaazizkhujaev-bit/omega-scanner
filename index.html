@@ -9,7 +9,16 @@
     h2 { text-align: center; color: #28a745; margin-bottom: 6px; }
     .hint { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 14px; }
 
-    #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 11px; overflow: hidden; background: #000; }
+    .manual-block { max-width: 480px; margin: 0 auto 20px; padding: 16px; background: #fff; border-radius: 11px; border: 2px solid #28a745; }
+    .manual-block label { display: block; font-size: 14px; font-weight: 700; color: #15803d; margin-bottom: 8px; }
+    .manual-row { display: flex; gap: 8px; }
+    .manual-row input { flex: 1; padding: 14px; font-size: 17px; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .manual-row button { flex: 0 0 auto; padding: 14px 20px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; }
+
+    .camera-toggle { max-width: 480px; margin: 0 auto 10px; text-align: center; }
+    .camera-toggle button { background: #64748b; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; cursor: pointer; }
+
+    #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 11px; overflow: hidden; background: #000; display: none; }
     #reader { width: 100%; }
     #reader video, #reader canvas { width: 100% !important; height: auto !important; display: block; }
 
@@ -30,20 +39,27 @@
     .found { color: #15803d; font-weight: 700; }
     .error { color: #dc3545; font-weight: 700; }
     .controls { max-width: 480px; margin: 12px auto 0; display: flex; gap: 10px; }
-    button { flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; }
+    button.ctrl { flex: 1; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; }
     #torchBtn { background: #f59e0b; color: #fff; display: none; }
     #closeBtn { background: #dc3545; color: #fff; }
-
-    .manual-block { max-width: 480px; margin: 20px auto 0; padding: 16px; background: #fff; border-radius: 11px; border: 1px solid #e2e8f0; }
-    .manual-block label { display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 8px; }
-    .manual-row { display: flex; gap: 8px; }
-    .manual-row input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; }
-    .manual-row button { flex: 0 0 auto; padding: 12px 18px; background: #28a745; color: #fff; }
   </style>
 </head>
 <body>
-  <h2>📷 Сканер штрих-кода</h2>
-  <div class="hint">Держите код ровно в рамке, на расстоянии 10–15 см</div>
+  <h2>📷 Добавить штрих-код</h2>
+
+  <div class="manual-block">
+    <label>✍️ Введите цифры штрих-кода (самый надёжный способ):</label>
+    <div class="manual-row">
+      <input type="text" id="manualInput" inputmode="numeric" placeholder="Например: 4870144863382" autofocus>
+      <button onclick="submitManual_()">Найти</button>
+    </div>
+  </div>
+
+  <div class="camera-toggle">
+    <button onclick="toggleCamera_()" id="cameraToggleBtn">📷 Попробовать сканировать камерой</button>
+  </div>
+
+  <div class="hint" id="cameraHint" style="display:none;">Держите код ровно в рамке, на расстоянии 10–15 см</div>
 
   <div id="readerWrap">
     <div id="reader"></div>
@@ -51,26 +67,22 @@
   </div>
 
   <div id="result"></div>
-  <div class="controls">
-    <button id="torchBtn" onclick="toggleTorch_()">💡 Фонарик</button>
-    <button id="closeBtn">Закрыть без сканирования</button>
+  <div class="controls" id="cameraControls" style="display:none;">
+    <button class="ctrl" id="torchBtn" onclick="toggleTorch_()">💡 Фонарик</button>
   </div>
 
-  <div class="manual-block">
-    <label>Не считывается? Введите цифры штрих-кода вручную:</label>
-    <div class="manual-row">
-      <input type="text" id="manualInput" inputmode="numeric" placeholder="Например: 4870144863382">
-      <button onclick="submitManual_()">Найти</button>
-    </div>
+  <div class="controls">
+    <button class="ctrl" id="closeBtn" style="background:#dc3545; color:#fff;">Закрыть без сканирования</button>
   </div>
 
   <script>
     var appUrl = 'https://script.google.com/macros/s/AKfycbyiXQzXONmWEyi9hKPzdfAEaBlWkqt85zIejqN0v8TA5_pdbHlmg-P6YlKz8zEvaEqF/exec';
     var handled = false;
     var torchOn = false;
+    var cameraStarted = false;
 
     document.getElementById('closeBtn').onclick = function () {
-      Quagga.stop();
+      if (cameraStarted) { try { Quagga.stop(); } catch (e) {} }
       window.location.href = appUrl;
     };
 
@@ -90,71 +102,95 @@
 
     var resultEl = document.getElementById('result');
 
-    Quagga.init({
-      inputStream: {
-        type: 'LiveStream',
-        target: document.getElementById('reader'),
-        constraints: {
-          facingMode: 'environment',
-          width: { min: 640, ideal: 1280 },
-          height: { min: 480, ideal: 720 }
-        }
-      },
-      locator: {
-        patchSize: 'medium',
-        halfSample: true
-      },
-      numOfWorkers: 2,
-      frequency: 10,
-      decoder: {
-        readers: [
-          'ean_reader',
-          'ean_8_reader',
-          'upc_reader',
-          'upc_e_reader',
-          'code_128_reader',
-          'code_39_reader',
-          'codabar_reader',
-          'i2of5_reader'
-        ]
-      },
-      locate: true
-    }, function (err) {
-      if (err) {
-        resultEl.innerHTML = '<span class="error">Не удалось открыть камеру: ' + err + '</span>';
-        return;
+    function toggleCamera_() {
+      var wrap = document.getElementById('readerWrap');
+      var hint = document.getElementById('cameraHint');
+      var toggleBtn = document.getElementById('cameraToggleBtn');
+
+      if (!cameraStarted) {
+        wrap.style.display = 'block';
+        hint.style.display = 'block';
+        toggleBtn.textContent = '✖ Остановить камеру';
+        startCamera_();
+      } else {
+        try { Quagga.stop(); } catch (e) {}
+        wrap.style.display = 'none';
+        hint.style.display = 'none';
+        document.getElementById('cameraControls').style.display = 'none';
+        toggleBtn.textContent = '📷 Попробовать сканировать камерой';
+        cameraStarted = false;
       }
-      Quagga.start();
+    }
 
-      // Проверка поддержки фонарика
-      setTimeout(function () {
-        try {
-          var track = Quagga.CameraAccess.getActiveTrack();
-          if (track && track.getCapabilities && track.getCapabilities().torch) {
-            document.getElementById('torchBtn').style.display = 'block';
-            window._torchTrack = track;
+    function startCamera_() {
+      cameraStarted = true;
+
+      Quagga.init({
+        inputStream: {
+          type: 'LiveStream',
+          target: document.getElementById('reader'),
+          constraints: {
+            facingMode: 'environment',
+            width: { min: 640, ideal: 1280 },
+            height: { min: 480, ideal: 720 }
           }
-        } catch (e) {}
-      }, 800);
-    });
+        },
+        locator: {
+          patchSize: 'medium',
+          halfSample: true
+        },
+        numOfWorkers: 2,
+        frequency: 10,
+        decoder: {
+          readers: [
+            'ean_reader',
+            'ean_8_reader',
+            'upc_reader',
+            'upc_e_reader',
+            'code_128_reader',
+            'code_39_reader',
+            'codabar_reader',
+            'i2of5_reader'
+          ]
+        },
+        locate: true
+      }, function (err) {
+        if (err) {
+          resultEl.innerHTML = '<span class="error">Не удалось открыть камеру: ' + err + '</span>';
+          return;
+        }
+        Quagga.start();
+        document.getElementById('cameraControls').style.display = 'flex';
 
-    Quagga.onDetected(function (data) {
-      if (handled) return;
-      var code = data.codeResult.code;
-      if (!code) return;
+        // Принудительно включаем непрерывный автофокус (частая причина размытых кадров на iOS)
+        setTimeout(function () {
+          try {
+            var track = Quagga.CameraAccess.getActiveTrack();
+            if (track && track.getCapabilities) {
+              var caps = track.getCapabilities();
+              if (caps.focusMode && caps.focusMode.indexOf('continuous') !== -1) {
+                track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+              }
+              if (caps.torch) {
+                document.getElementById('torchBtn').style.display = 'block';
+                window._torchTrack = track;
+              }
+            }
+          } catch (e) {}
+        }, 600);
+      });
 
-      handled = true;
-      resultEl.innerHTML = '<span class="found">✔ Найдено: ' + code + '</span>';
-      Quagga.stop();
-      goToApp_(code);
-    });
+      Quagga.onDetected(function (data) {
+        if (handled) return;
+        var code = data.codeResult.code;
+        if (!code) return;
+
+        handled = true;
+        resultEl.innerHTML = '<span class="found">✔ Найдено: ' + code + '</span>';
+        try { Quagga.stop(); } catch (e) {}
+        goToApp_(code);
+      });
+    }
 
     function toggleTorch_() {
-      if (!window._torchTrack) return;
-      torchOn = !torchOn;
-      window._torchTrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
-      document.getElementById('torchBtn').textContent = torchOn ? '💡 Выключить' : '💡 Фонарик';
-    }
-  </script>
-</body>
-</html>
+      if (!window._torchTrack)
