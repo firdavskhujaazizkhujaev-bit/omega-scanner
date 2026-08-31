@@ -62,7 +62,7 @@
       window.location.href = appUrl;
     };
 
-    var scanner = new Html5Qrcode('reader', {
+      var scanner = new Html5Qrcode('reader', {
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -76,8 +76,12 @@
         Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.DATA_MATRIX,
         Html5QrcodeSupportedFormats.AZTEC
-      ]
+      ],
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
     });
+    
     var resultEl = document.getElementById('result');
     var handled = false;
     var torchOn = false;
