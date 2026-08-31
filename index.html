@@ -52,18 +52,11 @@
 
         resultEl.innerHTML =
           '<span class="found">✔ Найдено: ' + decodedText + '</span><br><br>' +
-          '<small>Переход через 800мс на:<br>' + targetUrl + '</small>';
+          '<a id="manualLink" href="' + targetUrl + '" style="display:block; margin-top:12px; padding:14px; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:700;">Нажмите, если не перешло автоматически →</a>';
 
-        scanner.stop().then(function () {
-          setTimeout(function () {
-            window.location.href = targetUrl;
-          }, 800);
-        }).catch(function (err) {
-          resultEl.innerHTML += '<br><br><span class="error">Ошибка остановки сканера: ' + err + '</span>';
-          setTimeout(function () {
-            window.location.href = targetUrl;
-          }, 800);
-        });
+        scanner.stop().catch(function () {});
+
+        window.location.href = targetUrl;
       },
       function () { /* игнор кадров без штрих-кода */ }
     ).catch(function (err) {
