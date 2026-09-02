@@ -20,7 +20,7 @@
 
     #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 10px; overflow: hidden; background: #000; display: none; }
     #reader { width: 100%; }
-    #reader video, #reader canvas { width: 100% !important; height: auto !important; display: block; max-height: 260px; object-fit: cover; }
+    #reader video, #reader canvas { width: 100% !important; height: auto !important; display: block; }
 
     #scanBox {
       position: absolute;
@@ -33,6 +33,25 @@
       box-shadow: 0 0 0 2000px rgba(0,0,0,.35);
       pointer-events: none;
       z-index: 10;
+      overflow: hidden;
+    }
+
+    #scanLine {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #22c55e 20%, #22c55e 80%, transparent);
+      box-shadow: 0 0 8px 2px rgba(34,197,94,.7);
+      top: 0;
+      animation: scanMove 2s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 11;
+    }
+    @keyframes scanMove {
+      0%   { top: 0; }
+      50%  { top: 100%; }
+      100% { top: 0; }
     }
 
     #result { margin-top: 8px; text-align: center; font-size: 14px; padding: 8px; word-break: break-all; }
@@ -63,7 +82,9 @@
 
   <div id="readerWrap">
     <div id="reader"></div>
-    <div id="scanBox"></div>
+    <div id="scanBox">
+      <div id="scanLine"></div>
+    </div>
   </div>
 
   <div id="result"></div>
@@ -185,6 +206,7 @@
         if (!code) return;
 
         handled = true;
+        document.getElementById('scanLine').style.display = 'none';
         resultEl.innerHTML = '<span class="found">✔ Найдено: ' + code + '</span>';
         try { Quagga.stop(); } catch (e) {}
         goToApp_(code);
