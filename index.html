@@ -21,6 +21,7 @@
     #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 10px; overflow: hidden; background: #000; display: none; }
     #reader { width: 100%; }
     #reader video, #reader canvas { width: 100% !important; height: auto !important; display: block; }
+    #nativeVideo { width: 100%; display: block; }
 
     #scanBox {
       position: absolute;
@@ -57,6 +58,7 @@
     #result { margin-top: 8px; text-align: center; font-size: 14px; padding: 8px; word-break: break-all; }
     .found { color: #15803d; font-weight: 700; }
     .error { color: #dc3545; font-weight: 700; }
+    .engine-note { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 4px; }
     .controls { max-width: 480px; margin: 8px auto 0; display: flex; gap: 8px; }
     button.ctrl { flex: 1; padding: 9px 12px; font-size: 13px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; }
     #torchBtn { background: #f59e0b; color: #fff; display: none; }
@@ -81,6 +83,7 @@
   <div class="hint" id="cameraHint" style="display:none;">Держите код ровно в рамке, на расстоянии 10–15 см</div>
 
   <div id="readerWrap">
+    <video id="nativeVideo" autoplay playsinline muted style="display:none;"></video>
     <div id="reader"></div>
     <div id="scanBox">
       <div id="scanLine"></div>
@@ -88,6 +91,7 @@
   </div>
 
   <div id="result"></div>
+  <div class="engine-note" id="engineNote"></div>
   <div class="controls" id="cameraControls" style="display:none;">
     <button class="ctrl" id="torchBtn" onclick="toggleTorch_()">💡 Фонарик</button>
   </div>
@@ -101,9 +105,12 @@
     var handled = false;
     var torchOn = false;
     var cameraStarted = false;
+    var usingNative = false;
+    var nativeStream = null;
+    var nativeDetectInterval = null;
 
     document.getElementById('closeBtn').onclick = function () {
-      if (cameraStarted) { try { Quagga.stop(); } catch (e) {} }
+      stopEverything_();
       window.location.href = appUrl;
     };
 
@@ -123,6 +130,12 @@
 
     var resultEl = document.getElementById('result');
 
+    function stopEverything_() {
+      if (nativeDetectInterval) { clearInterval(nativeDetectInterval); nativeDetectInterval = null; }
+      if (nativeStream) { nativeStream.getTracks().forEach(function (t) { t.stop(); }); nativeStream = null; }
+      if (usingNative === false && cameraStarted) { try { Quagga.stop(); } catch (e) {} }
+    }
+
     function toggleCamera_() {
       var wrap = document.getElementById('readerWrap');
       var hint = document.getElementById('cameraHint');
@@ -134,7 +147,7 @@
         toggleBtn.textContent = '✖ Остановить камеру';
         startCamera_();
       } else {
-        try { Quagga.stop(); } catch (e) {}
+        stopEverything_();
         wrap.style.display = 'none';
         hint.style.display = 'none';
         document.getElementById('cameraControls').style.display = 'none';
@@ -145,6 +158,77 @@
 
     function startCamera_() {
       cameraStarted = true;
+
+      // Пытаемся использовать нативный BarcodeDetector (Android Chrome/Samsung Internet
+      // используют системный движок распознавания — точнее и быстрее, чем в JS)
+      if ('BarcodeDetector' in window) {
+        startNativeScanner_();
+      } else {
+        startQuaggaScanner_();
+      }
+    }
+
+    function startNativeScanner_() {
+      usingNative = true;
+      document.getElementById('engineNote').innerText = '';
+
+      var supportedFormats = [
+        'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'codabar', 'itf', 'qr_code'
+      ];
+
+      var detector;
+      try {
+        detector = new BarcodeDetector({ formats: supportedFormats });
+      } catch (e) {
+        startQuaggaScanner_();
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      }).then(function (stream) {
+        nativeStream = stream;
+        var video = document.getElementById('nativeVideo');
+        document.getElementById('reader').style.display = 'none';
+        video.style.display = 'block';
+        video.srcObject = stream;
+
+        document.getElementById('cameraControls').style.display = 'flex';
+
+        var track = stream.getVideoTracks()[0];
+        if (track && track.getCapabilities) {
+          try {
+            var caps = track.getCapabilities();
+            if (caps.torch) {
+              document.getElementById('torchBtn').style.display = 'block';
+              window._torchTrack = track;
+            }
+          } catch (e) {}
+        }
+
+        nativeDetectInterval = setInterval(function () {
+          if (handled) return;
+          detector.detect(video).then(function (codes) {
+            if (codes.length > 0 && !handled) {
+              handled = true;
+              document.getElementById('scanLine').style.display = 'none';
+              resultEl.innerHTML = '<span class="found">✔ Найдено: ' + codes[0].rawValue + '</span>';
+              stopEverything_();
+              goToApp_(codes[0].rawValue);
+            }
+          }).catch(function () {});
+        }, 300);
+      }).catch(function (err) {
+        // Нет доступа к камере через нативный API — пробуем QuaggaJS
+        startQuaggaScanner_();
+      });
+    }
+
+    function startQuaggaScanner_() {
+      usingNative = false;
+      document.getElementById('nativeVideo').style.display = 'none';
+      document.getElementById('reader').style.display = 'block';
+      document.getElementById('engineNote').innerText = '';
 
       Quagga.init({
         inputStream: {
