@@ -18,10 +18,10 @@
     .camera-toggle { max-width: 480px; margin: 0 auto 6px; text-align: center; }
     .camera-toggle button { background: #64748b; color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
 
-    #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 10px; overflow: hidden; background: #000; display: none; }
-    #reader { width: 100%; }
-    #reader video, #reader canvas { width: 100% !important; height: auto !important; display: block; }
-    #nativeVideo { width: 100%; display: block; }
+    #readerWrap { position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 10px; overflow: hidden; background: #000; display: none; height: 320px; }
+    #reader { width: 100%; height: 100%; }
+    #reader video, #reader canvas { width: 100% !important; height: 100% !important; object-fit: cover; display: block; }
+    #nativeVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
 
     #scanBox {
       position: absolute;
@@ -47,10 +47,7 @@
       top: 0;
       animation: scanMove 2s ease-in-out infinite;
       pointer-events: none;
-      z-i#readerWrap { height: 320px; }
-#reader { height: 100%; }
-#reader video, #reader canvas { width: 100% !important; height: 100% !important; object-fit: cover; display: block; }
-#nativeVideo { width: 100%; height: 100%; object-fit: cover; display: block; }ndex: 11;
+      z-index: 11;
     }
     @keyframes scanMove {
       0%   { top: 0; }
@@ -162,8 +159,6 @@
     function startCamera_() {
       cameraStarted = true;
 
-      // Пытаемся использовать нативный BarcodeDetector (Android Chrome/Samsung Internet
-      // используют системный движок распознавания — точнее и быстрее, чем в JS)
       if ('BarcodeDetector' in window) {
         startNativeScanner_();
       } else {
@@ -222,7 +217,6 @@
           }).catch(function () {});
         }, 300);
       }).catch(function (err) {
-        // Нет доступа к камере через нативный API — пробуем QuaggaJS
         startQuaggaScanner_();
       });
     }
