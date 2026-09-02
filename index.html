@@ -162,7 +162,6 @@
         Quagga.start();
         document.getElementById('cameraControls').style.display = 'flex';
 
-        // Принудительно включаем непрерывный автофокус (частая причина размытых кадров на iOS)
         setTimeout(function () {
           try {
             var track = Quagga.CameraAccess.getActiveTrack();
@@ -193,4 +192,11 @@
     }
 
     function toggleTorch_() {
-      if (!window._torchTrack)
+      if (!window._torchTrack) return;
+      torchOn = !torchOn;
+      window._torchTrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
+      document.getElementById('torchBtn').textContent = torchOn ? '💡 Выключить' : '💡 Фонарик';
+    }
+  </script>
+</body>
+</html>
